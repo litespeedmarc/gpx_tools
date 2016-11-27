@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--  this is a file for local debugging.  Put this in your tomcat's contexts directory  -->
+<!--  for me, this was /Applications/java/apache-tomcat-7.0.67/conf/Catalina/localhost   -->
+<Context docBase="/Users/pssemr/workspaces/personal/gpx_tools/target" path="/gpx_tools" reloadable="true" workDir="/Applications/java/apache-tomcat-7.0.67/work/Catalina/localhost/gpx_tools">
+  <Logger className="org.apache.catalina.logger.SystemOutLogger" timestamp="true" verbosity="4" />
+</Context>
