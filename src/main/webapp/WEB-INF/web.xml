@@ -1,5 +1,39 @@
-<web-app>
+<web-app  xmlns="http://java.sun.com/xml/ns/javaee"
+		  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+		  xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_3_0.xsd"
+		  version="3.0">
   <display-name>Marc's GPX tools</display-name>
+
+
+
+	<servlet-mapping>
+		<servlet-name>jsp2</servlet-name>
+		<url-pattern>*.html</url-pattern>
+	</servlet-mapping>
+
+	<servlet-mapping>
+		<servlet-name>default</servlet-name>
+		<url-pattern>/js/*</url-pattern>
+	</servlet-mapping>
+
+	<servlet-mapping>
+		<servlet-name>Marc's GPX Tools API</servlet-name>
+		<url-pattern>/api/*</url-pattern>
+	</servlet-mapping>
+
+	<servlet-mapping>
+		<servlet-name>GPXTools</servlet-name>
+		<url-pattern>*.do</url-pattern>
+	</servlet-mapping>
+
+
+
+
+
+	<servlet>
+		<servlet-name>jsp2</servlet-name>
+		<load-on-startup>1</load-on-startup>
+	</servlet>
 
 	<servlet>
 		<servlet-name>GPXTools</servlet-name>
@@ -9,19 +43,10 @@
 		<load-on-startup>1</load-on-startup>
 	</servlet>
 
-	<servlet-mapping>
-		<servlet-name>GPXTools</servlet-name>
-		<url-pattern>/</url-pattern>
-	</servlet-mapping>
-
 	<servlet>
 		<servlet-name>Marc's GPX Tools API</servlet-name>
 		<servlet-class>com.sun.jersey.spi.container.servlet.ServletContainer</servlet-class>
 		<load-on-startup>1</load-on-startup>
 	</servlet>
-	<servlet-mapping>
-		<servlet-name>Marc's GPX Tools API</servlet-name>
-		<url-pattern>/api/*</url-pattern>
-	</servlet-mapping>
 
 </web-app>

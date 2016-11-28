@@ -2,21 +2,12 @@ package ca.scibrazeau.gpx_tools.strava;
 
 import java.text.DecimalFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.stream.DoubleStream;
 
 import ca.scibrazeau.gpx_tools.model.ActivityDurationsAndPowers;
 import ca.scibrazeau.gpx_tools.model.TcxSummary;
-import javastrava.api.v3.auth.AuthorisationService;
-import javastrava.api.v3.auth.impl.retrofit.AuthorisationServiceImpl;
-import javastrava.api.v3.auth.model.Token;
-import javastrava.api.v3.model.StravaActivity;
-import javastrava.api.v3.model.StravaStream;
-import javastrava.api.v3.model.reference.StravaStreamResolutionType;
-import javastrava.api.v3.model.reference.StravaStreamSeriesDownsamplingType;
-import javastrava.api.v3.model.reference.StravaStreamType;
-import javastrava.api.v3.service.Strava;
+import ca.scibrazeau.gpx_tools.store.ActivityStore;
 
 @SuppressWarnings("nls")
 public class TcxGrabber {
@@ -34,7 +25,7 @@ public class TcxGrabber {
 	public TcxGrabber(String userId, long activityId, int targetDurationSeconds, int targetZone, String zones) {
 
 		mMinimumTimeTarget = targetDurationSeconds / 2;
-		mMinimumTimeOther = targetDurationSeconds * 2;
+		mMinimumTimeOther = targetDurationSeconds;
 		mMinimumZone = targetZone;
 
 		String[] zonesA = zones.split(",");
@@ -142,7 +133,7 @@ public class TcxGrabber {
 	public TcxSummary summarize() {
 		TcxSummary result = new TcxSummary();
 		result.setDateTime(mDateTime);
-		result.setDurationSeconds(getTotalDurationSeconds());
+		result.setDurationSeconds(getTotalDurationSeconds(1));
 
 		List<TcxSummary.Interval> intervals = new ArrayList<>();
 		double restSoFar = 0;
@@ -176,19 +167,61 @@ public class TcxGrabber {
 
 	}
 
-	public int getTotalDurationSeconds() {
+	public int getTotalDurationSeconds(int minPower) {
 		double totalDuration = mSegments.stream()
-				.filter(s -> s.getAvgPower() > 0)
-				.mapToDouble(s -> s.totalDuration())
+				.filter(s -> s.getAvgPower() >= minPower)
+				.mapToDouble(Segment::totalDuration)
 				.sum();
 		return (int) totalDuration;
 	}
 
-	public int getAveragePower() {
-		int totalDuration = getTotalDurationSeconds();
+	private int getAveragePower() {
+		int totalDuration = getTotalDurationSeconds(1);
 		return (int) mSegments.stream()
 				.filter(s -> s.getAvgPower() > 0)
 				.mapToDouble(s -> s.getAvgPower() * s.totalDuration() / totalDuration).sum();
+	}
+
+	public int[] getRealPoints() {
+		int numberPoints = getTotalDurationSeconds(0);
+		int at = 0;
+		int[] result = new int[numberPoints];
+		for (Segment s : mSegments) {
+			for (double pow : s.mPowers) {
+				result[at++] = (int) pow;
+			}
+		}
+		return result;
+	}
+
+	public int[] getZonedPoints() {
+		int numberPoints = getTotalDurationSeconds(0);
+		int at = 0;
+		int[] result = new int[numberPoints];
+		for (Segment s : mSegments) {
+			double avgPow = s.getAvgPower();
+			for (double ignored : s.mPowers) {
+				result[at++] = (int) avgPow;
+			}
+		}
+		return result;
+	}
+
+
+	public int[] getMatchingZonePoints() {
+		int numberPoints = getTotalDurationSeconds(0);
+		int at = 0;
+		int[] result = new int[numberPoints];
+		for (Segment s : mSegments) {
+			double avgPow = s.getAvgPower();
+			if (avgPow < mUserZones[mMinimumZone - 1 ]) {
+				avgPow = 0;
+			}
+			for (double ignored : s.mPowers) {
+				result[at++] = (int) avgPow;
+			}
+		}
+		return result;
 	}
 
 	private class Segment {
@@ -196,6 +229,25 @@ public class TcxGrabber {
 		private List<Double> mPowers;
 
 		public List<Segment> splitInto() {
+			List<Segment> toReturn = splitInto2();
+
+			for (int i = 0; i < toReturn.size() - 1; i++) {
+				Segment thisSeg = toReturn.get(i);
+				Segment nextSeg = toReturn.get(i + 1);
+				int thisZone = Math.min(thisSeg.getZone(), mMinimumZone - 1);
+				int nextZone = Math.min(nextSeg.getZone(), mMinimumZone - 1);
+				if (thisZone == nextZone) {
+					thisSeg.addEnd(nextSeg);
+					toReturn.remove(i + 1);
+					i--; // re-evaluate this segment
+				}
+			}
+			
+			return toReturn;
+
+		}
+
+		List<Segment> splitInto2() {
 			List<Segment> toReturn = new ArrayList<>();
 
 			// can't split any further
@@ -224,7 +276,7 @@ public class TcxGrabber {
 				double powToAdd = addLeft ? leftPow : rightPow;
 				double totalPower = middle.getTotalPower();
 				double avgPower = totalPower / middle.totalDuration();
-				int ourZone = TcxGrabber.this.getZone(avgPower);
+				int ourZone = Math.min(mMinimumZone - 1, TcxGrabber.this.getZone(avgPower));
 
 				boolean add;
 				int minimumTime;
@@ -263,11 +315,11 @@ public class TcxGrabber {
 			}
 
 			if (!left.isEmpty()) {
-				toReturn.addAll(left.splitInto());
+				toReturn.addAll(left.splitInto2());
 			}
 			toReturn.add(middle);
 			if (!right.isEmpty()) {
-				toReturn.addAll(right.splitInto());
+				toReturn.addAll(right.splitInto2());
 			}
 			return toReturn;
 		}
